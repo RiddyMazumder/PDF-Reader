@@ -5,3 +5,5 @@ faiss-cpu
 streamlit
 python-dotenv
 pypdf2
+transformers
+
