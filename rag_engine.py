@@ -22,7 +22,12 @@ def _generative_llm():
     # small, local-friendly text2text model; works with RetrievalQA
     gen = pipeline("text2text-generation", model="google/flan-t5-base", device=_device())
     return HuggingFacePipeline(pipeline=gen)
-    
+
+def _is_openended(question: str) -> bool:
+    # simple heuristic: if question starts with "what", "how", "why", etc, it's open-ended
+    open_ended_starts = ("what", "how", "why", "explain", "describe", "summarize", "overview", "describe", "bullet", "high level", "strengths", "summary", "compare")
+    return any(start in question.lower() for start in open_ended_starts)
+
 def load_documents(pdf_paths):
     all_documents = []
     for path in pdf_paths:
@@ -32,7 +37,6 @@ def load_documents(pdf_paths):
     return all_documents
 
 def create_vector_store(documents):
-    
     # split documents into smaller chunks
     splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     chunks = splitter.split_documents(documents)
@@ -45,17 +49,30 @@ def create_vector_store(documents):
 def search_documents(query, documents):
     # Create vector store
     vector_store = create_vector_store(documents)
-    retriever = vector_store.as_retriever(search_kwargs={"k": 10})
+    retriever = vector_store.as_retriever(search_kwargs={"k": 10}) # retrieve top 10 chunks (relevant)
 
-    # Load QA pipeline with extractive model
-    qa_pipeline = pipeline("question-answering", model="deepset/roberta-base-squad2")
+    # extractive q and a for the non-open-ended questions
+    e_pipe = _extractive_pipeline()  # load the HF extractive QA pipeline here 
+    best = {"answer": None, "score": -1.0}  # keep track of the best answer seen so far and its confidence score
+    top_chunks = retriever.get_relevant_documents(query)  # fetch top k chunks 
 
-    llm = HuggingFacePipeline(pipeline=qa_pipeline)
+    for chunk in top_chunks:
+        try:
+            output = e_pipe({"question": query, "context": chunk.page_content})  # run extractive q and a on this chunk
+            if output and output.get("score", 0) > best["score"]:  # result exists + has a higher score than current best, so update
+                best = {"answer": output.get("answer", ""), "score": float(output.get("score", 0))}  
+        except Exception:  
+            pass  
 
+    if best["answer"] and best["score"] > 0.1 and not _is_openended(query):  # if we found a decent answer, return it
+
+
+    # generative llm for open-ended questions or if no good extractive answer found
+    gen_llm = _generative_llm() 
     # Create Retrieval QA chain
     qa_chain = RetrievalQA.from_chain_type(
-        llm=llm,
-        retriever=vector_store.as_retriever(),
+        llm=gen_llm,
+        retriever=retrieve,
         return_source_documents=False
     )
 
