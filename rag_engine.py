@@ -65,21 +65,17 @@ def search_documents(query, documents):
             pass  
 
     if best["answer"] and best["score"] > 0.1 and not _is_openended(query):  # if we found a decent answer, return it
-
+        return best["answer"]
 
     # generative llm for open-ended questions or if no good extractive answer found
     gen_llm = _generative_llm() 
     # Create Retrieval QA chain
     qa_chain = RetrievalQA.from_chain_type(
         llm=gen_llm,
-        retriever=retrieve,
+        retriever=retriever,
         return_source_documents=False
     )
 
     # Ask question
     answer = qa_chain.run(query)
     return answer
-
-
-
-
