@@ -1,4 +1,6 @@
 # 📄 PDF Reader: Your AI-Powered PDF Companion
+<!-- DO NOT EDIT: Static README -->
+echo "README.md binary" >> .gitattributes
 
 ![PDF Reader](https://img.shields.io/badge/PDF%20Reader-v1.0-blue.svg)
 ![GitHub Release](https://img.shields.io/badge/Releases-Check%20Now-brightgreen.svg)
